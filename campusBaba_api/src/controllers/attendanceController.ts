@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
-import { Attendance } from "../models/Attendance";
-import { Student } from "../models/Student";
+import { Attendance  } from "../models";
+import { Student  } from "../models";
 import { asyncHandler } from "../middlewares/asyncHandler";
 import { AppError } from "../middlewares/errorHandler";
 import {

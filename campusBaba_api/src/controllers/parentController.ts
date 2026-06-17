@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import { Parent } from "../models/Parent";
-import { Student } from "../models/Student";
-import { nextSequence } from "../models/Counter";
+import { Parent  } from "../models";
+import { Student  } from "../models";
+import { nextSequence  } from "../models";
 import { asyncHandler } from "../middlewares/asyncHandler";
 import { AppError } from "../middlewares/errorHandler";
 import {

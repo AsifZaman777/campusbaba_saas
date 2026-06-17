@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
-import { Department } from "../models/Department";
-import { Course } from "../models/Course";
-import { ClassRoom } from "../models/ClassRoom";
+import { Department  } from "../models";
+import { Course  } from "../models";
+import { ClassRoom  } from "../models";
 import { asyncHandler } from "../middlewares/asyncHandler";
 import { AppError } from "../middlewares/errorHandler";
 import {

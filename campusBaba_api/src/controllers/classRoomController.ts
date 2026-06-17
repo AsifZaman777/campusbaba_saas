@@ -1,10 +1,10 @@
 import { Request, Response } from "express";
-import { ClassRoom } from "../models/ClassRoom";
-import { Student } from "../models/Student";
-import { Routine } from "../models/Routine";
+import { ClassRoom  } from "../models";
+import { Student  } from "../models";
+import { Routine  } from "../models";
 import { asyncHandler } from "../middlewares/asyncHandler";
 import { AppError } from "../middlewares/errorHandler";
-import { nextSequence } from "../models/Counter";
+import { nextSequence  } from "../models";
 import {
   getPaginationParams,
   createPaginationResult,

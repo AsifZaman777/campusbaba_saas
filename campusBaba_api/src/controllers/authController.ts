@@ -1,10 +1,10 @@
 import { Request, Response } from "express";
 import jwt from "jsonwebtoken";
-import { User } from "../models/User";
-import { Teacher } from "../models/Teacher";
-import { Student } from "../models/Student";
-import { Parent } from "../models/Parent";
-import { Employee } from "../models/Employee";
+import { User  } from "../models";
+import { Teacher  } from "../models";
+import { Student  } from "../models";
+import { Parent  } from "../models";
+import { Employee  } from "../models";
 import { asyncHandler } from "../middlewares/asyncHandler";
 import { AppError } from "../middlewares/errorHandler";
 

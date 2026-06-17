@@ -12,15 +12,4 @@ const counterSchema = new Schema<ICounter>({
 
 export { counterSchema };
 
-/**
- * Atomically increment the counter for `name` and return the new value.
- * Thread-safe via findOneAndUpdate with upsert.
- */
-export async function nextSequence(name: string): Promise<number> {
-  const counter = await Counter.findOneAndUpdate(
-    { _id: name },
-    { $inc: { seq: 1 } },
-    { new: true, upsert: true },
-  );
-  return counter!.seq;
-}
+

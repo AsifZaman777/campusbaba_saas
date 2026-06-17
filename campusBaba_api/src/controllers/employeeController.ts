@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
-import { Employee } from "../models/Employee";
-import { nextSequence } from "../models/Counter";
+import { Employee  } from "../models";
+import { nextSequence  } from "../models";
 import { asyncHandler } from "../middlewares/asyncHandler";
 import { AppError } from "../middlewares/errorHandler";
 import {

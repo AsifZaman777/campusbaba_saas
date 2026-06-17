@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
-import { Student } from "../models/Student";
-import { nextSequence } from "../models/Counter";
+import { Student  } from "../models";
+import { nextSequence  } from "../models";
 import { asyncHandler } from "../middlewares/asyncHandler";
 import { AppError } from "../middlewares/errorHandler";
 import {
@@ -10,6 +10,13 @@ import {
 
 export const createStudent = asyncHandler(
   async (req: Request, res: Response) => {
+    if (req.tenant) {
+      const activeStudentsCount = await Student.countDocuments({ status: "active" });
+      if (activeStudentsCount >= req.tenant.maxStudents) {
+        throw new AppError(403, `Tenant limit reached. Maximum ${req.tenant.maxStudents} active students allowed.`);
+      }
+    }
+
     const seq = await nextSequence("student");
     const studentId = `STU-${String(seq).padStart(4, "0")}`;
     const student = await Student.create({ ...req.body, studentId });

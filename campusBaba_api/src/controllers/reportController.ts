@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
-import { Payment } from "../models/Payment";
-import { Expense } from "../models/Expense";
+import { Payment  } from "../models";
+import { Expense  } from "../models";
 import { asyncHandler } from "../middlewares/asyncHandler";
 
 export const getIncomeReport = asyncHandler(

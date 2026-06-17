@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { Routine } from "../models/Routine";
+import { Routine  } from "../models";
 import { asyncHandler } from "../middlewares/asyncHandler";
 import { AppError } from "../middlewares/errorHandler";
 import {

@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
-import { Exam } from "../models/Exam";
-import { ExamMark } from "../models/ExamMark";
+import { Exam  } from "../models";
+import { ExamMark  } from "../models";
 import { asyncHandler } from "../middlewares/asyncHandler";
 import { AppError } from "../middlewares/errorHandler";
 import {

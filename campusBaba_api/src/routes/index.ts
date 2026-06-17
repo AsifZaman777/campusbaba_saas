@@ -16,7 +16,16 @@ import noticeRoutes from "./noticeRoutes";
 import dashboardRoutes from "./dashboardRoutes";
 import reportRoutes from "./reportRoutes";
 
+import superAdminRoutes from "./superAdminRoutes";
+import { tenantResolver } from "../middlewares/tenantResolver";
+
 const router = Router();
+
+// Master DB Routes
+router.use("/superadmin", superAdminRoutes);
+
+// Tenant DB Routes (Requires tenant ID)
+router.use(tenantResolver);
 
 // API Routes
 router.use("/auth", authRoutes);

@@ -1,9 +1,9 @@
 import { Request, Response } from "express";
-import { Student } from "../models/Student";
-import { Teacher } from "../models/Teacher";
-import { Attendance } from "../models/Attendance";
-import { Payment } from "../models/Payment";
-import { Routine } from "../models/Routine";
+import { Student  } from "../models";
+import { Teacher  } from "../models";
+import { Attendance  } from "../models";
+import { Payment  } from "../models";
+import { Routine  } from "../models";
 import { asyncHandler } from "../middlewares/asyncHandler";
 
 export const getDashboardStats = asyncHandler(

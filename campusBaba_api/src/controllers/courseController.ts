@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
-import { Course } from "../models/Course";
-import { ClassRoom } from "../models/ClassRoom";
+import { Course  } from "../models";
+import { ClassRoom  } from "../models";
 import { asyncHandler } from "../middlewares/asyncHandler";
 import { AppError } from "../middlewares/errorHandler";
 import {

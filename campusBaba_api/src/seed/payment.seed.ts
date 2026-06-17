@@ -1,6 +1,6 @@
 import { faker } from "@faker-js/faker";
 import { Payment, Student, Course, ClassRoom, Counter } from "../models";
-import { nextSequence } from "../models/Counter";
+import { nextSequence } from "../models";
 
 const seedPayments = async () => {
   try {
