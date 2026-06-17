@@ -1,0 +1,16 @@
+export { counterSchema } from "./Counter";
+export { attendanceSchema, IAttendance } from "./Attendance";
+export { classRoomSchema, IClassRoom } from "./ClassRoom";
+export { courseSchema, ICourse } from "./Course";
+export { departmentSchema, IDepartment } from "./Department";
+export { employeeSchema, IEmployee } from "./Employee";
+export { examSchema, IExam } from "./Exam";
+export { examMarkSchema, IExamMark } from "./ExamMark";
+export { expenseSchema, IExpense } from "./Expense";
+export { noticeSchema, INotice } from "./Notice";
+export { parentSchema, IParent } from "./Parent";
+export { paymentSchema, IPayment } from "./Payment";
+export { routineSchema, IRoutine } from "./Routine";
+export { studentSchema, IStudent } from "./Student";
+export { teacherSchema, ITeacher } from "./Teacher";
+export { userSchema, IUser } from "./User";
