@@ -15,6 +15,19 @@ api.interceptors.request.use(
       if (session?.user?.accessToken) {
         config.headers.Authorization = `Bearer ${session.user.accessToken}`;
       }
+
+      // Attach Tenant ID for SaaS Architecture
+      let tenantId = process.env.NEXT_PUBLIC_TENANT_ID;
+      if (!tenantId) {
+        const hostParts = window.location.hostname.split('.');
+        if (hostParts.length >= 3 && hostParts[0] !== 'www') {
+          tenantId = hostParts[0];
+        }
+      }
+      
+      if (tenantId) {
+        config.headers["x-tenant-id"] = tenantId;
+      }
     }
     return config;
   },

@@ -1,12 +1,14 @@
 import { Router } from "express";
-import { loginSuperAdmin, provisionTenant } from "../controllers/superAdminController";
+import { loginSuperAdmin, provisionTenant, getTenants, updateTenant, getTenantDetails } from "../controllers/superAdminController";
 
 const router = Router();
 
 router.post("/login", loginSuperAdmin);
 
 // In a real app, this should be protected by a middleware checking for 'superadmin' role.
-// We'll keep it simple for now, assuming the token check is done or this is internal.
+router.get("/tenants", getTenants);
 router.post("/tenants", provisionTenant);
+router.get("/tenants/:id/details", getTenantDetails);
+router.put("/tenants/:id", updateTenant);
 
 export default router;

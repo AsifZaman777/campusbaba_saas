@@ -17,9 +17,18 @@ export const authOptions: NextAuthOptions = {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
         if (!credentials?.email || !credentials?.password) {
           throw new Error("Please enter email and password");
+        }
+
+        let tenantId = process.env.NEXT_PUBLIC_TENANT_ID || "";
+        if (!tenantId && req?.headers?.host) {
+          const hostParts = req.headers.host.split(".");
+          // If domain has 3 parts (e.g. schoolA.example.com)
+          if (hostParts.length >= 3) {
+            tenantId = hostParts[0];
+          }
         }
 
         try {
@@ -31,7 +40,10 @@ export const authOptions: NextAuthOptions = {
                 email: credentials.email,
                 password: credentials.password,
               }),
-              headers: { "Content-Type": "application/json" },
+              headers: { 
+                "Content-Type": "application/json",
+                ...(tenantId && { "x-tenant-id": tenantId })
+              },
             },
           );
 

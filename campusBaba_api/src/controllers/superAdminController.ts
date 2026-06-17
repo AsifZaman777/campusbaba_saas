@@ -62,10 +62,13 @@ export const provisionTenant = async (req: Request, res: Response) => {
     }
 
     // Determine DB URI
-    // For simplicity, we use the same MongoDB host but with a different DB name
-    const defaultUri = process.env.MONGO_URI || "mongodb://localhost:27017/campusbaba";
-    const baseUri = defaultUri.substring(0, defaultUri.lastIndexOf("/"));
-    const tenantDbURI = `${baseUri}/tenant_${subdomain}`;
+    // Use MONGODB_URI from env (which is what database.ts uses)
+    const defaultUri = env.MONGODB_URI;
+    const uriObj = new URL(defaultUri);
+    const dbPathParts = uriObj.pathname.split('/');
+    dbPathParts[dbPathParts.length - 1] = `tenant_${subdomain}`;
+    uriObj.pathname = dbPathParts.join('/');
+    const tenantDbURI = uriObj.toString();
 
     // Create Tenant Record
     const tenant = await Tenant.create({
@@ -86,20 +89,29 @@ export const provisionTenant = async (req: Request, res: Response) => {
 
     const newEmployee = await EmployeeModel.create({
       employeeId: `ADM-${Date.now()}`,
-      designation: "Principal",
-      joiningDate: new Date(),
-      department: null,
       firstName: "Admin",
       lastName: "User",
       email: adminEmail,
       phone: "00000000000",
+      dateOfBirth: new Date("1980-01-01"),
       gender: "other",
-      dateOfBirth: new Date(),
-      bloodGroup: "A+",
       address: {
-        present: "CampusBaba",
-        permanent: "CampusBaba"
-      }
+        street: "123 Main St",
+        city: "Metropolis",
+        state: "State",
+        zipCode: "00000",
+        country: "Country",
+      },
+      position: "Principal",
+      department: "Administration",
+      joiningDate: new Date(),
+      salary: 0,
+      status: "active",
+      emergencyContact: {
+        name: "Emergency Contact",
+        relationship: "Other",
+        phone: "00000000000",
+      },
     });
 
     await UserModel.create({
@@ -119,5 +131,91 @@ export const provisionTenant = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error(error);
     res.status(500).json({ success: false, message: "Provisioning failed", error: error.message });
+  }
+};
+
+// Get all Tenants
+export const getTenants = async (req: Request, res: Response) => {
+  try {
+    const tenants = await Tenant.find().sort({ createdAt: -1 });
+    res.status(200).json({
+      success: true,
+      data: tenants,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Failed to fetch tenants" });
+  }
+};
+
+// Get specific Tenant details (Deep Info)
+export const getTenantDetails = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const tenant = await Tenant.findById(id);
+
+    if (!tenant) {
+      return res.status(404).json({ success: false, message: "Tenant not found" });
+    }
+
+    // Connect to specific tenant's database
+    const tenantConn = TenantConnectionManager.getTenantConnection(tenant.subdomain, tenant.dbURI);
+    
+    // Get Models
+    const StudentModel = TenantConnectionManager.getTenantModel<any>(tenantConn, "Student");
+    const TeacherModel = TenantConnectionManager.getTenantModel<any>(tenantConn, "Teacher");
+    const EmployeeModel = TenantConnectionManager.getTenantModel<any>(tenantConn, "Employee");
+
+    // Fetch deep information
+    const students = await StudentModel.find().lean();
+    const teachers = await TeacherModel.find().lean();
+    const employees = await EmployeeModel.find().lean();
+
+    res.status(200).json({
+      success: true,
+      data: {
+        tenant,
+        analytics: {
+          currentStudents: students.length,
+          currentTeachers: teachers.length,
+          currentEmployees: employees.length,
+        },
+        lists: {
+          students,
+          teachers,
+          employees
+        }
+      },
+    });
+  } catch (error: any) {
+    console.error("Deep fetch error:", error);
+    res.status(500).json({ success: false, message: "Failed to fetch deep tenant info", error: error.message });
+  }
+};
+
+// Update Tenant
+export const updateTenant = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { subscriptionStatus, maxStudents, maxTeachers, maxAdmins } = req.body;
+
+    const tenant = await Tenant.findById(id);
+    if (!tenant) {
+      return res.status(404).json({ success: false, message: "Tenant not found" });
+    }
+
+    if (subscriptionStatus) tenant.subscriptionStatus = subscriptionStatus;
+    if (maxStudents !== undefined) tenant.maxStudents = maxStudents;
+    if (maxTeachers !== undefined) tenant.maxTeachers = maxTeachers;
+    if (maxAdmins !== undefined) tenant.maxAdmins = maxAdmins;
+
+    await tenant.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Tenant updated successfully",
+      data: tenant,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Failed to update tenant" });
   }
 };
