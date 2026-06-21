@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { SuperAdmin } from "../masterModels/SuperAdmin";
 import { Tenant } from "../masterModels/Tenant";
+import { GlobalNotice } from "../masterModels/GlobalNotice";
 import jwt from "jsonwebtoken";
 import { env } from "../config/env";
 import mongoose from "mongoose";
@@ -196,7 +197,7 @@ export const getTenantDetails = async (req: Request, res: Response) => {
 export const updateTenant = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { subscriptionStatus, maxStudents, maxTeachers, maxAdmins } = req.body;
+    const { subscriptionStatus, maxStudents, maxTeachers, maxAdmins, billingPlan } = req.body;
 
     const tenant = await Tenant.findById(id);
     if (!tenant) {
@@ -207,6 +208,7 @@ export const updateTenant = async (req: Request, res: Response) => {
     if (maxStudents !== undefined) tenant.maxStudents = maxStudents;
     if (maxTeachers !== undefined) tenant.maxTeachers = maxTeachers;
     if (maxAdmins !== undefined) tenant.maxAdmins = maxAdmins;
+    if (billingPlan) tenant.billingPlan = billingPlan;
 
     await tenant.save();
 
@@ -217,5 +219,185 @@ export const updateTenant = async (req: Request, res: Response) => {
     });
   } catch (error) {
     res.status(500).json({ success: false, message: "Failed to update tenant" });
+  }
+};
+
+// ─── NEW: Dashboard Stats ───────────────────────────
+export const getDashboardStats = async (req: Request, res: Response) => {
+  try {
+    const tenants = await Tenant.find().lean();
+
+    let totalStudents = 0;
+    let totalTeachers = 0;
+    let totalEmployees = 0;
+
+    // Aggregate counts across all tenant databases
+    for (const tenant of tenants) {
+      try {
+        const tenantConn = TenantConnectionManager.getTenantConnection(tenant.subdomain, tenant.dbURI);
+        const StudentModel = TenantConnectionManager.getTenantModel<any>(tenantConn, "Student");
+        const TeacherModel = TenantConnectionManager.getTenantModel<any>(tenantConn, "Teacher");
+        const EmployeeModel = TenantConnectionManager.getTenantModel<any>(tenantConn, "Employee");
+
+        const [studentCount, teacherCount, employeeCount] = await Promise.all([
+          StudentModel.countDocuments(),
+          TeacherModel.countDocuments(),
+          EmployeeModel.countDocuments(),
+        ]);
+
+        totalStudents += studentCount;
+        totalTeachers += teacherCount;
+        totalEmployees += employeeCount;
+      } catch (err) {
+        // Skip if tenant DB is unreachable
+        console.warn(`Could not fetch stats for tenant ${tenant.subdomain}:`, err);
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        totalOrganizations: tenants.length,
+        activeOrganizations: tenants.filter(t => t.subscriptionStatus === "active").length,
+        inactiveOrganizations: tenants.filter(t => t.subscriptionStatus !== "active").length,
+        totalStudents,
+        totalTeachers,
+        totalEmployees,
+        totalSubdomains: tenants.filter(t => t.subdomain).length,
+      },
+    });
+  } catch (error: any) {
+    console.error("Dashboard stats error:", error);
+    res.status(500).json({ success: false, message: "Failed to fetch dashboard stats" });
+  }
+};
+
+// ─── NEW: Suspend Tenant ────────────────────────────
+export const suspendTenant = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const tenant = await Tenant.findById(id);
+    if (!tenant) {
+      return res.status(404).json({ success: false, message: "Tenant not found" });
+    }
+
+    tenant.subscriptionStatus = "inactive";
+    await tenant.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Tenant suspended successfully",
+      data: tenant,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Failed to suspend tenant" });
+  }
+};
+
+// ─── NEW: Activate Tenant ───────────────────────────
+export const activateTenant = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const tenant = await Tenant.findById(id);
+    if (!tenant) {
+      return res.status(404).json({ success: false, message: "Tenant not found" });
+    }
+
+    tenant.subscriptionStatus = "active";
+    await tenant.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Tenant activated successfully",
+      data: tenant,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Failed to activate tenant" });
+  }
+};
+
+// ─── NEW: Delete Tenant ─────────────────────────────
+export const deleteTenant = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const tenant = await Tenant.findById(id);
+    if (!tenant) {
+      return res.status(404).json({ success: false, message: "Tenant not found" });
+    }
+
+    await Tenant.findByIdAndDelete(id);
+
+    res.status(200).json({
+      success: true,
+      message: "Tenant deleted successfully",
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Failed to delete tenant" });
+  }
+};
+
+// ─── NEW: Global Notices CRUD ───────────────────────
+export const createGlobalNotice = async (req: Request, res: Response) => {
+  try {
+    const notice = await GlobalNotice.create(req.body);
+    res.status(201).json({
+      success: true,
+      message: "Notice created successfully",
+      data: notice,
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: "Failed to create notice", error: error.message });
+  }
+};
+
+export const getGlobalNotices = async (req: Request, res: Response) => {
+  try {
+    const notices = await GlobalNotice.find().sort({ createdAt: -1 });
+    res.status(200).json({
+      success: true,
+      data: notices,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Failed to fetch notices" });
+  }
+};
+
+export const updateGlobalNotice = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const notice = await GlobalNotice.findByIdAndUpdate(id, req.body, {
+      new: true,
+      runValidators: true,
+    });
+
+    if (!notice) {
+      return res.status(404).json({ success: false, message: "Notice not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Notice updated successfully",
+      data: notice,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Failed to update notice" });
+  }
+};
+
+export const deleteGlobalNotice = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const notice = await GlobalNotice.findByIdAndDelete(id);
+
+    if (!notice) {
+      return res.status(404).json({ success: false, message: "Notice not found" });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Notice deleted successfully",
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: "Failed to delete notice" });
   }
 };

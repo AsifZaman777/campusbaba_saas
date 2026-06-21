@@ -1,20 +1,45 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import axios from "axios";
-import { Edit2, ShieldAlert, CheckCircle, XCircle, Search, ExternalLink } from "lucide-react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
+import {
+  Building2,
+  Globe,
+  Users,
+  GraduationCap,
+  Briefcase,
+  DollarSign,
+  TrendingUp,
+  ArrowUpRight,
+  Clock,
+} from "lucide-react";
+import {
+  AreaChart,
+  Area,
+  BarChart,
+  Bar,
+  PieChart,
+  Pie,
+  Cell,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Legend,
+} from "recharts";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
+import { StatCard } from "@/components/stat-card";
+import { ChartCard } from "@/components/chart-card";
+import { getOrganizations } from "@/lib/api";
 
 interface Tenant {
   _id: string;
   name: string;
   subdomain: string;
-  dbURI: string;
   subscriptionStatus: "active" | "inactive" | "past_due";
   billingPlan: string;
   maxStudents: number;
@@ -23,210 +48,572 @@ interface Tenant {
   createdAt: string;
 }
 
+// Chart color palette
+const COLORS = {
+  primary: "#6366f1",
+  violet: "#8b5cf6",
+  cyan: "#06b6d4",
+  emerald: "#10b981",
+  amber: "#f59e0b",
+  rose: "#f43f5e",
+};
+
+const PIE_COLORS = [COLORS.emerald, COLORS.rose, COLORS.amber];
+
 export default function DashboardPage() {
+  const router = useRouter();
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<Partial<Tenant>>({});
-  const [searchQuery, setSearchQuery] = useState("");
-
-  const fetchTenants = async () => {
-    try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5002/api/v1";
-      const response = await axios.get(`${apiUrl}/superadmin/tenants`, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("superadmin_token")}`
-        }
-      });
-      setTenants(response.data.data);
-    } catch (err: any) {
-      setError("Failed to fetch tenants.");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   useEffect(() => {
-    fetchTenants();
+    const fetchData = async () => {
+      try {
+        const result = await getOrganizations();
+        setTenants(result.data);
+      } catch {
+        // Error handled by interceptor
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
   }, []);
 
-  const handleEditClick = (tenant: Tenant) => {
-    setEditingId(tenant._id);
-    setEditForm({
-      subscriptionStatus: tenant.subscriptionStatus,
-      maxStudents: tenant.maxStudents,
-      maxTeachers: tenant.maxTeachers,
-      maxAdmins: tenant.maxAdmins,
-    });
-  };
-
-  const handleSave = async (id: string) => {
-    try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5002/api/v1";
-      await axios.put(`${apiUrl}/superadmin/tenants/${id}`, editForm, {
-        headers: {
-          Authorization: `Bearer ${localStorage.getItem("superadmin_token")}`
-        }
-      });
-      setEditingId(null);
-      fetchTenants();
-    } catch (err) {
-      alert("Failed to update tenant.");
-    }
-  };
-
-  if (loading) return <div className="p-8 text-center text-muted-foreground animate-pulse">Loading overview...</div>;
-  if (error) return <div className="p-8 text-center text-destructive">{error}</div>;
-
-  const filteredTenants = tenants.filter(t => 
-    t.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    t.subdomain.toLowerCase().includes(searchQuery.toLowerCase())
+  // ─── Compute stats ────────────────────────────────
+  const totalOrgs = tenants.length;
+  const activeOrgs = tenants.filter(
+    (t) => t.subscriptionStatus === "active"
+  ).length;
+  const inactiveOrgs = tenants.filter(
+    (t) => t.subscriptionStatus !== "active"
+  ).length;
+  const totalSubdomains = tenants.filter((t) => t.subdomain).length;
+  const totalStudentCapacity = tenants.reduce(
+    (sum, t) => sum + t.maxStudents,
+    0
+  );
+  const totalTeacherCapacity = tenants.reduce(
+    (sum, t) => sum + t.maxTeachers,
+    0
   );
 
-  return (
-    <div className="space-y-8">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">Overview</h2>
-        <p className="text-muted-foreground mt-2">Manage your SaaS organizations and view their high-level metrics.</p>
-      </div>
+  // Estimated revenue (placeholder logic: active orgs × base rate)
+  const estimatedMRR = activeOrgs * 5000; // ৳5000/month per active org
 
-      {/* Overview Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Organizations</CardTitle>
-            <ShieldAlert className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{tenants.length}</div>
-            <p className="text-xs text-muted-foreground mt-1">All provisioned schools</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Subscriptions</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {tenants.filter(t => t.subscriptionStatus === "active").length}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">Currently billed organizations</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Inactive or Past Due</CardTitle>
-            <XCircle className="h-4 w-4 text-destructive" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {tenants.filter(t => t.subscriptionStatus !== "active").length}
-            </div>
-            <p className="text-xs text-muted-foreground mt-1">Requires follow-up</p>
-          </CardContent>
-        </Card>
-      </div>
+  // ─── Chart Data ───────────────────────────────────
 
-      {/* Tenant List */}
-      <Card>
-        <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
-            <CardTitle>Registered Organizations</CardTitle>
-          </div>
-          <div className="relative w-full sm:w-72">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input 
-              placeholder="Search organizations..." 
-              className="pl-8" 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+  // Revenue trend (mock last 6 months)
+  const revenueData = (() => {
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
+    const base = Math.max(1, activeOrgs - 3);
+    return months.map((month, i) => ({
+      month,
+      revenue: (base + i) * 5000,
+      target: (base + i + 1) * 5000,
+    }));
+  })();
+
+  // Org registration trend (derived from tenant createdAt)
+  const orgGrowthData = (() => {
+    const monthCounts: Record<string, number> = {};
+    tenants.forEach((t) => {
+      const date = new Date(t.createdAt);
+      const key = date.toLocaleString("default", {
+        month: "short",
+        year: "2-digit",
+      });
+      monthCounts[key] = (monthCounts[key] || 0) + 1;
+    });
+
+    const entries = Object.entries(monthCounts).slice(-6);
+    if (entries.length === 0) {
+      return [
+        { month: "Jan", count: 0 },
+        { month: "Feb", count: 0 },
+      ];
+    }
+    return entries.map(([month, count]) => ({ month, count }));
+  })();
+
+  // Subscription distribution
+  const subscriptionData = [
+    {
+      name: "Active",
+      value: tenants.filter((t) => t.subscriptionStatus === "active").length,
+    },
+    {
+      name: "Inactive",
+      value: tenants.filter((t) => t.subscriptionStatus === "inactive").length,
+    },
+    {
+      name: "Past Due",
+      value: tenants.filter((t) => t.subscriptionStatus === "past_due").length,
+    },
+  ].filter((d) => d.value > 0);
+
+  // Top orgs by capacity
+  const topOrgsData = tenants
+    .sort((a, b) => b.maxStudents - a.maxStudents)
+    .slice(0, 5)
+    .map((t) => ({
+      name: t.name.length > 15 ? t.name.slice(0, 15) + "…" : t.name,
+      students: t.maxStudents,
+      teachers: t.maxTeachers,
+    }));
+
+  // Recent activity (from tenant creation dates)
+  const recentActivity = tenants
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    )
+    .slice(0, 5);
+
+  // ─── Custom Recharts Tooltip ──────────────────────
+  const CustomTooltip = ({
+    active,
+    payload,
+    label,
+  }: {
+    active?: boolean;
+    payload?: Array<{ name: string; value: number; color: string }>;
+    label?: string;
+  }) => {
+    if (!active || !payload) return null;
+    return (
+      <div className="bg-popover border border-border rounded-lg px-3 py-2 shadow-xl">
+        <p className="text-xs font-medium text-foreground mb-1">{label}</p>
+        {payload.map((entry, i) => (
+          <p key={i} className="text-xs text-muted-foreground">
+            <span
+              className="inline-block w-2 h-2 rounded-full mr-1.5"
+              style={{ backgroundColor: entry.color }}
             />
+            {entry.name}: {entry.value.toLocaleString()}
+          </p>
+        ))}
+      </div>
+    );
+  };
+
+  if (loading) {
+    return (
+      <div className="space-y-6 mt-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 stagger-children">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Skeleton key={i} className="h-[140px] rounded-xl" />
+          ))}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Skeleton className="h-[350px] rounded-xl" />
+          <Skeleton className="h-[350px] rounded-xl" />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6 mt-2 animate-fade-in">
+      {/* ─── KPI Stat Cards ─── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 stagger-children">
+        <StatCard
+          title="Total Organizations"
+          value={totalOrgs}
+          subtitle="All provisioned schools"
+          icon={Building2}
+          gradientFrom="from-indigo-500/20"
+          gradientTo="to-indigo-600/10"
+          accentColor="text-indigo-400"
+        />
+        <StatCard
+          title="Subdomains"
+          value={totalSubdomains}
+          subtitle="Registered domains"
+          icon={Globe}
+          gradientFrom="from-cyan-500/20"
+          gradientTo="to-cyan-600/10"
+          accentColor="text-cyan-400"
+        />
+        <StatCard
+          title="Active Tenants"
+          value={activeOrgs}
+          subtitle={`${inactiveOrgs} inactive`}
+          icon={Users}
+          gradientFrom="from-emerald-500/20"
+          gradientTo="to-emerald-600/10"
+          accentColor="text-emerald-400"
+          trend={
+            totalOrgs > 0
+              ? {
+                  value: Math.round((activeOrgs / totalOrgs) * 100),
+                  label: "active rate",
+                  positive: true,
+                }
+              : undefined
+          }
+        />
+        <StatCard
+          title="Student Capacity"
+          value={totalStudentCapacity}
+          subtitle="Total across all orgs"
+          icon={GraduationCap}
+          gradientFrom="from-violet-500/20"
+          gradientTo="to-violet-600/10"
+          accentColor="text-violet-400"
+        />
+        <StatCard
+          title="Teacher Capacity"
+          value={totalTeacherCapacity}
+          subtitle="Total across all orgs"
+          icon={Briefcase}
+          gradientFrom="from-amber-500/20"
+          gradientTo="to-amber-600/10"
+          accentColor="text-amber-400"
+        />
+        <StatCard
+          title="Est. Monthly Rev."
+          value={estimatedMRR}
+          subtitle="Based on active plans"
+          icon={DollarSign}
+          gradientFrom="from-emerald-500/20"
+          gradientTo="to-cyan-500/10"
+          accentColor="text-emerald-400"
+          formatValue={(v) => `৳${v.toLocaleString()}`}
+        />
+      </div>
+
+      {/* ─── Charts Row 1 ─── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Revenue Trend */}
+        <ChartCard
+          title="Revenue Trend"
+          subtitle="Monthly revenue over the last 6 months"
+          action={
+            <Badge variant="outline" className="text-xs">
+              <TrendingUp className="h-3 w-3 mr-1" />
+              +12%
+            </Badge>
+          }
+        >
+          <div className="h-[280px] mt-2">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={revenueData}>
+                <defs>
+                  <linearGradient
+                    id="revenueGradient"
+                    x1="0"
+                    y1="0"
+                    x2="0"
+                    y2="1"
+                  >
+                    <stop
+                      offset="0%"
+                      stopColor={COLORS.primary}
+                      stopOpacity={0.3}
+                    />
+                    <stop
+                      offset="100%"
+                      stopColor={COLORS.primary}
+                      stopOpacity={0}
+                    />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="var(--border)"
+                  opacity={0.3}
+                />
+                <XAxis
+                  dataKey="month"
+                  tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(v) => `৳${(v / 1000).toFixed(0)}k`}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Area
+                  type="monotone"
+                  dataKey="revenue"
+                  stroke={COLORS.primary}
+                  strokeWidth={2}
+                  fill="url(#revenueGradient)"
+                  name="Revenue"
+                />
+                <Area
+                  type="monotone"
+                  dataKey="target"
+                  stroke={COLORS.violet}
+                  strokeWidth={1.5}
+                  strokeDasharray="5 5"
+                  fill="none"
+                  name="Target"
+                />
+              </AreaChart>
+            </ResponsiveContainer>
           </div>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Organization</TableHead>
-                <TableHead>Subdomain</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Limits (Std/Tch/Adm)</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredTenants.map((tenant) => (
-                <TableRow key={tenant._id}>
-                  <TableCell>
-                    <div className="font-medium text-foreground">{tenant.name}</div>
-                    <div className="text-xs text-muted-foreground">Joined: {new Date(tenant.createdAt).toLocaleDateString()}</div>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {tenant.subdomain}.campusbaba.com
-                  </TableCell>
-                  <TableCell>
-                    {editingId === tenant._id ? (
-                      <select 
-                        className="text-sm border-input rounded-md p-1 border bg-background"
-                        value={editForm.subscriptionStatus}
-                        onChange={(e) => setEditForm({ ...editForm, subscriptionStatus: e.target.value as any })}
-                      >
-                        <option value="active">Active</option>
-                        <option value="inactive">Inactive</option>
-                        <option value="past_due">Past Due</option>
-                      </select>
-                    ) : (
-                      <Badge variant={tenant.subscriptionStatus === "active" ? "success" : "destructive"}>
-                        {tenant.subscriptionStatus.toUpperCase()}
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {editingId === tenant._id ? (
-                      <div className="flex gap-2 w-48">
-                        <Input type="number" className="w-16 h-8 p-1" value={editForm.maxStudents} onChange={e => setEditForm({...editForm, maxStudents: +e.target.value})} title="Students"/>
-                        <Input type="number" className="w-16 h-8 p-1" value={editForm.maxTeachers} onChange={e => setEditForm({...editForm, maxTeachers: +e.target.value})} title="Teachers"/>
-                        <Input type="number" className="w-16 h-8 p-1" value={editForm.maxAdmins} onChange={e => setEditForm({...editForm, maxAdmins: +e.target.value})} title="Admins"/>
-                      </div>
-                    ) : (
-                      <span>{tenant.maxStudents} / {tenant.maxTeachers} / {tenant.maxAdmins}</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {editingId === tenant._id ? (
-                      <div className="flex justify-end gap-2">
-                        <Button size="sm" onClick={() => handleSave(tenant._id)}>Save</Button>
-                        <Button size="sm" variant="outline" onClick={() => setEditingId(null)}>Cancel</Button>
-                      </div>
-                    ) : (
-                      <div className="flex justify-end gap-2">
-                        <Button size="icon" variant="ghost" onClick={() => handleEditClick(tenant)}>
-                          <Edit2 className="h-4 w-4" />
-                        </Button>
-                        <Link href={`/dashboard/tenant/${tenant._id}`}>
-                          <Button size="icon" variant="outline">
-                            <ExternalLink className="h-4 w-4" />
-                          </Button>
-                        </Link>
-                      </div>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-              {filteredTenants.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={5} className="text-center py-6 text-muted-foreground">
-                    No organizations found.
-                  </TableCell>
-                </TableRow>
+        </ChartCard>
+
+        {/* Org Growth */}
+        <ChartCard
+          title="Organization Growth"
+          subtitle="New organizations registered per period"
+        >
+          <div className="h-[280px] mt-2">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={orgGrowthData}>
+                <defs>
+                  <linearGradient
+                    id="barGradient"
+                    x1="0"
+                    y1="0"
+                    x2="0"
+                    y2="1"
+                  >
+                    <stop offset="0%" stopColor={COLORS.cyan} />
+                    <stop offset="100%" stopColor={COLORS.primary} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="var(--border)"
+                  opacity={0.3}
+                />
+                <XAxis
+                  dataKey="month"
+                  tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
+                  axisLine={false}
+                  tickLine={false}
+                  allowDecimals={false}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Bar
+                  dataKey="count"
+                  fill="url(#barGradient)"
+                  radius={[6, 6, 0, 0]}
+                  name="Organizations"
+                  maxBarSize={50}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </ChartCard>
+      </div>
+
+      {/* ─── Charts Row 2 ─── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Subscription Distribution */}
+        <ChartCard title="Subscription Status" subtitle="Distribution of plans">
+          <div className="h-[250px] mt-2">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={
+                    subscriptionData.length > 0
+                      ? subscriptionData
+                      : [{ name: "No Data", value: 1 }]
+                  }
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={90}
+                  paddingAngle={4}
+                  dataKey="value"
+                  strokeWidth={0}
+                >
+                  {(subscriptionData.length > 0
+                    ? subscriptionData
+                    : [{ name: "No Data", value: 1 }]
+                  ).map((_, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={
+                        subscriptionData.length > 0
+                          ? PIE_COLORS[index % PIE_COLORS.length]
+                          : "#1e2740"
+                      }
+                    />
+                  ))}
+                </Pie>
+                <Tooltip content={<CustomTooltip />} />
+                <Legend
+                  iconType="circle"
+                  iconSize={8}
+                  formatter={(value) => (
+                    <span className="text-xs text-muted-foreground">
+                      {value}
+                    </span>
+                  )}
+                />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </ChartCard>
+
+        {/* Top Orgs by Capacity */}
+        <ChartCard
+          title="Top Organizations"
+          subtitle="By student capacity"
+          className="lg:col-span-2"
+        >
+          <div className="h-[250px] mt-2">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart
+                data={topOrgsData}
+                layout="vertical"
+                margin={{ left: 10 }}
+              >
+                <CartesianGrid
+                  strokeDasharray="3 3"
+                  stroke="var(--border)"
+                  opacity={0.3}
+                  horizontal={false}
+                />
+                <XAxis
+                  type="number"
+                  tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  dataKey="name"
+                  type="category"
+                  tick={{ fill: "var(--muted-foreground)", fontSize: 11 }}
+                  axisLine={false}
+                  tickLine={false}
+                  width={110}
+                />
+                <Tooltip content={<CustomTooltip />} />
+                <Bar
+                  dataKey="students"
+                  fill={COLORS.primary}
+                  radius={[0, 4, 4, 0]}
+                  name="Students"
+                  maxBarSize={20}
+                />
+                <Bar
+                  dataKey="teachers"
+                  fill={COLORS.cyan}
+                  radius={[0, 4, 4, 0]}
+                  name="Teachers"
+                  maxBarSize={20}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </ChartCard>
+      </div>
+
+      {/* ─── Recent Activity & Quick Actions ─── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Recent Activity */}
+        <Card className="lg:col-span-2 border-border/50">
+          <CardHeader>
+            <CardTitle className="text-base font-semibold">
+              Recent Activity
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {recentActivity.length === 0 && (
+                <p className="text-sm text-muted-foreground py-8 text-center">
+                  No activity yet. Provision your first organization to get
+                  started.
+                </p>
               )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+              {recentActivity.map((tenant, i) => (
+                <div
+                  key={tenant._id}
+                  className="flex items-start gap-3 animate-slide-up"
+                  style={{ animationDelay: `${i * 50}ms` }}
+                >
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 mt-0.5 flex-shrink-0">
+                    <Building2 className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">
+                      {tenant.name}{" "}
+                      <span className="text-muted-foreground font-normal">
+                        was provisioned
+                      </span>
+                    </p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <Badge variant="outline" className="text-[10px] px-1.5">
+                        {tenant.subdomain}.campusbaba.com
+                      </Badge>
+                      <span className="text-[10px] text-muted-foreground flex items-center gap-1">
+                        <Clock className="h-3 w-3" />
+                        {new Date(tenant.createdAt).toLocaleDateString()}
+                      </span>
+                    </div>
+                  </div>
+                  <Badge
+                    variant={
+                      tenant.subscriptionStatus === "active"
+                        ? "default"
+                        : "destructive"
+                    }
+                    className="text-[10px] flex-shrink-0"
+                  >
+                    {tenant.subscriptionStatus}
+                  </Badge>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Quick Actions */}
+        <Card className="border-border/50">
+          <CardHeader>
+            <CardTitle className="text-base font-semibold">
+              Quick Actions
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Button
+              className="w-full justify-start gradient-primary text-white hover:opacity-90 transition-opacity"
+              onClick={() => router.push("/dashboard/provision")}
+            >
+              <Building2 className="h-4 w-4 mr-2" />
+              Provision New Org
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full justify-start"
+              onClick={() => router.push("/dashboard/notices")}
+            >
+              <ArrowUpRight className="h-4 w-4 mr-2" />
+              Send Global Notice
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full justify-start"
+              onClick={() => router.push("/dashboard/organizations")}
+            >
+              <Users className="h-4 w-4 mr-2" />
+              View All Organizations
+            </Button>
+            <Button
+              variant="outline"
+              className="w-full justify-start"
+              onClick={() => router.push("/dashboard/billing")}
+            >
+              <DollarSign className="h-4 w-4 mr-2" />
+              Billing Overview
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
