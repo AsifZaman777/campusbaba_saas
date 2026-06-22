@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTheme } from "next-themes";
 import {
   Settings as SettingsIcon,
   User,
@@ -13,7 +14,6 @@ import {
   EyeOff,
   Moon,
   Sun,
-  Monitor,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +33,8 @@ import {
 import { toast } from "sonner";
 
 export default function SettingsPage() {
+  const { theme, setTheme } = useTheme();
+
   const [profile, setProfile] = useState({
     name: "Super Admin",
     email: "admin@campusbaba.com",
@@ -53,7 +55,6 @@ export default function SettingsPage() {
   });
 
   const [appearance, setAppearance] = useState({
-    theme: "dark",
     sidebarCollapsed: false,
     compactMode: false,
   });
@@ -351,21 +352,18 @@ export default function SettingsPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   {[
-                    { value: "dark", icon: Moon, label: "Dark" },
                     { value: "light", icon: Sun, label: "Light" },
-                    { value: "system", icon: Monitor, label: "System" },
+                    { value: "dark", icon: Moon, label: "Dark" },
                   ].map(({ value, icon: Icon, label }) => (
                     <Button
                       key={value}
                       variant={
-                        appearance.theme === value ? "default" : "outline"
+                        theme === value ? "default" : "outline"
                       }
                       size="sm"
-                      onClick={() =>
-                        setAppearance({ ...appearance, theme: value })
-                      }
+                      onClick={() => setTheme(value)}
                       className={
-                        appearance.theme === value
+                        theme === value
                           ? "gradient-primary text-white"
                           : ""
                       }
@@ -424,4 +422,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-
